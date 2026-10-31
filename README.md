@@ -45,7 +45,7 @@ With HoverFocus running, the window under your cursor gets focus as soon as you 
 - A hover delay you can set to Instant, 100 ms, 250 ms (the default), 500 ms or 1000 ms
 - Launch at Login
 - A menu bar icon, plus an optional Dock icon
-- It leaves the Dock, the menu bar, open menus and system security prompts alone, and it does nothing while you are dragging something
+- It leaves the Dock, the menu bar, open menus, popups (like Chrome's extensions and download bubbles) and system security prompts alone, and it does nothing while you are dragging something
 - No network access, and it collects nothing
 - One universal build for Apple silicon and Intel
 
@@ -141,6 +141,10 @@ When you are done, turn the log off again with `defaults write com.hoverfocus.ap
 **Still stuck?** [Open an issue](https://github.com/jhrahman/HoverFocus/issues) and include the log from above.
 
 **How do I remove it?** Quit HoverFocus from the menu bar, turn off Launch at Login, delete `/Applications/HoverFocus.app`, and remove it from the Accessibility list.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
 
 ## License
 

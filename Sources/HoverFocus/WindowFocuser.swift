@@ -49,8 +49,15 @@ enum WindowFocuser {
 
             let app = AXUIElementCreateApplication(target.pid)
             AXUIElementSetMessagingTimeout(app, 0.3)
+            // Only real windows get focus. Popovers, menus, download bubbles and tooltips are separate windows too,
+            // and moving focus to them (or away from the window that owns them) makes the app close them.
             guard let window = axWindow(in: app, matching: target) else {
-                Log.debug("no AX window for pid \(target.pid) bounds \(target.bounds)")
+                Log.debug("skip: window \(target.id) of pid \(target.pid) is not a standard window")
+                return
+            }
+            // A popup of this app currently owns focus (e.g. an open extensions popup): leave it alone.
+            if let currentKey, currentKey != target.id, popupIsOpen(currentKey, in: app) {
+                Log.debug("skip: popup \(currentKey) has focus")
                 return
             }
 
@@ -161,20 +168,30 @@ enum WindowFocuser {
         return modal == true
     }
 
-    /// Maps a CGWindow to its AXUIElement by window ID, then by frame, falling back to a hit test.
-    private static func axWindow(in app: AXUIElement, matching target: HoverWindow) -> AXUIElement? {
+    private static let focusableSubroles: Set<String> = ["AXStandardWindow", "AXDialog", "AXFloatingWindow", "AXSystemDialog"]
+
+    /// True if `id` is a window of the app that is still on screen but is not a standard window (a popup).
+    private static func popupIsOpen(_ id: CGWindowID, in app: AXUIElement) -> Bool {
+        guard WindowDetector.orderedWindows().contains(where: { $0.id == id }) else { return false }
         let windows: [AXUIElement] = attribute(app, kAXWindowsAttribute) ?? []
+        guard let w = windows.first(where: { SkyLight.windowID(of: $0) == id }) else { return true }
+        return !focusableSubroles.contains(attribute(w, kAXSubroleAttribute) ?? "")
+    }
+
+    /// Maps a CGWindow to its standard AXUIElement window, by window ID first, then by frame.
+    /// Returns nil for anything that isn't a normal window (popovers, bubbles, tooltips).
+    private static func axWindow(in app: AXUIElement, matching target: HoverWindow) -> AXUIElement? {
+        let windows: [AXUIElement] = (attribute(app, kAXWindowsAttribute) ?? [])
+            .filter { focusableSubroles.contains(attribute($0, kAXSubroleAttribute) ?? "") }
         if let w = windows.first(where: { SkyLight.windowID(of: $0) == target.id }) { return w }
+        guard !SkyLight.isAvailable || windows.allSatisfy({ SkyLight.windowID(of: $0) == nil }) else { return nil }
         for w in windows {
             guard let p = point(w, kAXPositionAttribute), let s = size(w, kAXSizeAttribute) else { continue }
             let f = CGRect(origin: p, size: s)
             if abs(f.minX - target.bounds.minX) < 3, abs(f.minY - target.bounds.minY) < 3,
                abs(f.width - target.bounds.width) < 3, abs(f.height - target.bounds.height) < 3 { return w }
         }
-        var el: AXUIElement?
-        let c = CGPoint(x: target.bounds.midX, y: target.bounds.midY)
-        guard AXUIElementCopyElementAtPosition(app, Float(c.x), Float(c.y), &el) == .success, let el else { return nil }
-        return attribute(el, kAXWindowAttribute)
+        return nil
     }
 
     private static func attribute<T>(_ el: AXUIElement, _ name: String) -> T? {

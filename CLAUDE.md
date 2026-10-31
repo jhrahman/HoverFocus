@@ -8,6 +8,7 @@ HoverFocus is a macOS menu bar utility: focus follows the mouse, like Windows' "
 
 - Repo: https://github.com/jhrahman/HoverFocus (branch `main`)
 - Bundle ID: `com.hoverfocus.app`
+- Version: 0.1.0 (see `CHANGELOG.md`)
 - Minimum macOS: 13 (needed for `SMAppService`). Universal binary: arm64 and x86_64.
 - License: MIT
 
@@ -59,6 +60,7 @@ These came out of experiments, not documentation. Check them again before buildi
 - When switching between two windows of the same app, a resign-key record must be sent to the old window, then about 10 ms later a become-key record to the new one. Chromium needs the gap.
 - Chromium and Electron apps report the focused window late through AX, so `WindowFocuser` tracks the key window itself (last focused or clicked window).
 - Java apps (IntelliJ and other JetBrains IDEs) raise their window when made key, but accept the first click on an inactive window anyway. They are only activated, never made key.
+- Popups (Chrome's extensions menu and download bubble, tooltips) are separate layer-0 windows of the same app, but are not in the app's AX window list as `AXStandardWindow`. Moving focus to one, or away from the window that owns it, makes the app close the popup. `WindowFocuser` only focuses windows found by exact window ID with a standard, dialog or floating subrole, and does nothing while a popup of the active app holds focus.
 - The Dock keeps an invisible window covering each display at layer 20. `WindowDetector` must skip full-display overlays, or hover focus never fires on that display.
 - `AppKit` calls such as raising our own windows must happen on the main thread. Never send AX actions to HoverFocus's own windows from the focus queue.
 
@@ -68,13 +70,15 @@ The private calls are looked up at runtime. If a symbol is missing, `SkyLight.is
 
 There is no automated suite. Test on the real machine, which has an external 1920x1080 main display and a MacBook display to its left.
 
-1. Build and install, then run the binary directly from a shell that already has Accessibility permission (the VS Code integrated terminal does). It inherits that permission, so no re-grant is needed.
+1. Build and install into `/Applications`, then run that binary directly from a shell that already has Accessibility permission (the VS Code integrated terminal does). It inherits that permission, so no re-grant is needed.
 2. Drive the mouse with `CGEvent` posts and read window order with `CGWindowListCopyWindowInfo`.
 3. For first-click behaviour, write a small probe app whose view logs every `mouseDown`. A click that only activates the window is not logged, so a missing line means the click was lost. Test the same app across two displays, different apps, and a Java app using the JBR `java` binary.
 4. Enable the log: `defaults write com.hoverfocus.app debug -bool true`, then read `~/Library/Logs/HoverFocus.log`.
 5. Crash reports are in `~/Library/Logs/DiagnosticReports/HoverFocus-*.ips`.
 
-Do not click inside the user's real apps. Use probe windows for clicks.
+Run the installed copy, not `build/HoverFocus.app`: outside Applications the app blocks on its "Move to Applications" prompt and never starts monitoring, which makes tests look like they pass. In zsh, quote or use `${=var}` when passing "x y" coordinate pairs to the harness.
+
+Do not click inside the user's real apps. The only exception is a click the user has asked for as part of a test (for example opening a Chrome popup). Use probe windows for clicks.
 
 ## Conventions
 
@@ -83,12 +87,13 @@ Do not click inside the user's real apps. Use probe windows for clicks.
 - Keep AX and SkyLight work off the main thread, on the `hoverfocus.focus` queue in `WindowFocuser`.
 - New user-facing settings go through `Settings`, get a row in `SettingsView`, and flash a confirmation message.
 - Documentation and UI copy: plain, natural wording. No em dashes, no marketing filler.
-- Update `README.md` when behaviour, requirements or settings change.
+- Update `README.md` when behaviour, requirements or settings change, and add every user-visible change to `CHANGELOG.md`.
 
 ## Git
 
 - Work on `main` unless told otherwise. Commit only when asked.
 - `build/`, `.DS_Store` and editor folders are ignored. Never commit the DMG or the built app. Publish the DMG as a GitHub Release asset named exactly `HoverFocus.dmg`, because the README download link depends on that name.
+- Releasing: bump the version in `build.sh` (`CFBundleShortVersionString` and `CFBundleVersion`) and the fallback in `SettingsView.swift`, move the changelog entries under the new version, run `./build.sh`, then publish a GitHub Release tagged `vX.Y.Z` with `build/HoverFocus.dmg` attached.
 - Do not commit personal data: home-folder paths, email addresses, tokens or certificates. Scan before committing.
 
 ## Safety guard: deleting and changing things

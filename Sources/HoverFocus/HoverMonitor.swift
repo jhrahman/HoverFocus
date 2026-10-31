@@ -13,6 +13,7 @@ final class HoverMonitor {
 
     func start() {
         guard monitor == nil else { return }
+        Log.debug("monitor starting, trusted=\(AXIsProcessTrusted())")
         monitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDown, .rightMouseDown]) { [weak self] event in
             if event.type == .mouseMoved {
                 self?.mouseMoved()
