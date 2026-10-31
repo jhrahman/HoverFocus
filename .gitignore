@@ -1,0 +1,11 @@
+# macOS
+.DS_Store
+
+# Build output (publish the DMG as a GitHub release asset instead)
+build/
+
+# Editor and local tooling
+.vscode/
+.idea/
+.claude/
+*.xcuserstate
